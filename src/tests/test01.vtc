@@ -1,0 +1,36 @@
+varnishtest "Test rmq vmod"
+
+server s1 {
+       rxreq
+       txresp
+} -start
+
+varnish v1 -vcl+backend {
+	import std;
+    import geoip;
+	import ${vmod_rmq};
+
+	sub vcl_init {
+        rmq.init("localhost", 5672, "test", "guest", "guest");
+	}
+
+	sub vcl_deliver {
+        set resp.http.rmq = rmq.send(client.ip, geoip.country_name("8.8.8.8"), geoip.latlong("8.8.8.8"), "hit");
+	}
+
+} -start
+
+logexpect l1 -v v1 -g raw -d 1 {
+    expect 0 0    CLI     {^Rd vcl.load}
+} -start
+
+client c1 {
+	txreq -url "/"
+	rxresp
+	expect resp.http.rmq  ~  ".*hit"
+}
+
+
+client c1 -run
+
+logexpect l1 -wait

@@ -1,0 +1,30 @@
+#
+# Copyright Magnus Persson (c) 2019.
+#
+# (vmodtool requires this format.)
+#
+
+$Module rmq 3 Rmq VMOD
+
+DESCRIPTION
+===========
+
+This is the embedded documentation for the rmq VMOD. It should
+mention what the vmod is intended to do.
+
+It can span multiple lines and is written in RST format.
+You can even have links and lists in here:
+
+* https://github.com/varnish/libvmod-rmq/
+* https://www.varnish-cache.org/
+
+$Event event_function
+
+$Function STRING send(STRING, STRING, STRING, STRING)
+
+Add message to the message queue.
+
+$Function VOID init(STRING, INT, STRING, STRING, STRING)
+
+Setup connection towards Rabbit MQ
+
