@@ -25,6 +25,7 @@ typedef struct RMQ
 {
 	amqp_socket_t *s;
 	amqp_connection_state_t conn;
+	int m;
 } rmq;
 
 /*
@@ -81,6 +82,7 @@ vmod_init(VRT_CTX, struct vmod_priv *pp, VCL_STRING host, VCL_INT port, VCL_STRI
 		rmq *mq = malloc(sizeof(rmq));
 		mq->conn = amqp_new_connection();
 		mq->s = amqp_tcp_socket_new(mq->conn);
+		mq->m = 0;
 		if (mq->s)
 		{
 			int status = amqp_socket_open(mq->s, host, port);
@@ -115,9 +117,15 @@ vmod_send(VRT_CTX, struct vmod_priv *pp, VCL_STRING remote_host, VCL_STRING coun
 	props.content_type = amqp_cstring_bytes("text/plain");
 
 	props.delivery_mode = 2; /* persistent delivery mode */
+	while (((rmq *)pp->priv)->m == 1)
+	{
+		// Wait for the mutex lock. FOR TEST ONLY!
+	}
+	((rmq *)pp->priv)->m = 1;
 	amqp_basic_publish(((rmq *)pp->priv)->conn, 1, amqp_cstring_bytes("amq.direct"),
 					   amqp_cstring_bytes("test"), 1, 0,
 					   &props, amqp_cstring_bytes(p));
+	((rmq *)pp->priv)->m = 0;
 	WS_Release(ctx->ws, v);
 	return (p);
 }
