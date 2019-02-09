@@ -93,7 +93,7 @@ vmod_init(VRT_CTX, struct vmod_priv *pp, VCL_STRING host, VCL_INT port, VCL_STRI
 			amqp_channel_open(mq->conn, 1);
 			amqp_get_rpc_reply(mq->conn);
 			amqp_queue_bind(mq->conn, 1, amqp_cstring_bytes(key),
-							amqp_cstring_bytes("amq->direct"), amqp_cstring_bytes(key),
+							amqp_cstring_bytes("amq.direct"), amqp_cstring_bytes(key),
 							amqp_empty_table);
 		}
 		pp->priv = mq;
