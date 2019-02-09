@@ -20,11 +20,11 @@ You can even have links and lists in here:
 
 $Event event_function
 
-$Function STRING send(STRING, STRING, STRING, STRING)
+$Function STRING send(PRIV_VCL, STRING, STRING, STRING, STRING)
 
 Add message to the message queue.
 
-$Function VOID init(STRING, INT, STRING, STRING, STRING)
+$Function VOID init(PRIV_VCL, STRING, INT, STRING, STRING, STRING)
 
 Setup connection towards Rabbit MQ
 

@@ -18,11 +18,14 @@
 const size_t infosz = 64;
 char *info;
 
-int status;
 char const *exchange;
 char const *routingkey;
-amqp_socket_t *s = NULL;
-amqp_connection_state_t conn;
+
+typedef struct RMQ
+{
+	amqp_socket_t *s;
+	amqp_connection_state_t conn;
+} rmq;
 
 /*
  * handle vmod internal state, vmod init/fini and/or varnish callback
@@ -71,34 +74,35 @@ int __match_proto__(vmod_event_f)
 }
 
 VCL_VOID
-vmod_init(VRT_CTX, VCL_STRING host, VCL_INT port, VCL_STRING key, VCL_STRING username, VCL_STRING password)
+vmod_init(VRT_CTX, struct vmod_priv *pp, VCL_STRING host, VCL_INT port, VCL_STRING key, VCL_STRING username, VCL_STRING password)
 {
-	exchange = "amq.direct";
-	routingkey = key;
-
-	conn = amqp_new_connection();
-
-	s = amqp_tcp_socket_new(conn);
-	if (s)
+	if (pp->priv == NULL)
 	{
-		status = amqp_socket_open(s, host, port);
-		if (status)
+		rmq *mq = malloc(sizeof(rmq));
+		mq->conn = amqp_new_connection();
+		mq->s = amqp_tcp_socket_new(mq->conn);
+		if (mq->s)
 		{
-			//   die("opening TCP socket");
-			return;
+			int status = amqp_socket_open(mq->s, host, port);
+			if (status)
+			{
+				return;
+			}
+			amqp_login(mq->conn, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN,
+					   username, password);
+			amqp_channel_open(mq->conn, 1);
+			amqp_get_rpc_reply(mq->conn);
+			amqp_queue_bind(mq->conn, 1, amqp_cstring_bytes(key),
+							amqp_cstring_bytes("amq->direct"), amqp_cstring_bytes(key),
+							amqp_empty_table);
 		}
-		amqp_login(conn, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN,
-				   username, password);
-		amqp_channel_open(conn, 1);
-		amqp_get_rpc_reply(conn);
-		amqp_queue_bind(conn, 1, amqp_cstring_bytes(key),
-						amqp_cstring_bytes(exchange), amqp_cstring_bytes(key),
-						amqp_empty_table);
+		pp->priv = mq;
+		AN(pp->priv);
 	}
 }
 
 VCL_STRING
-vmod_send(VRT_CTX, VCL_STRING remote_host, VCL_STRING country, VCL_STRING geo_location, VCL_STRING type)
+vmod_send(VRT_CTX, struct vmod_priv *pp, VCL_STRING remote_host, VCL_STRING country, VCL_STRING geo_location, VCL_STRING type)
 {
 	char *p;
 	unsigned v, u;
@@ -111,8 +115,8 @@ vmod_send(VRT_CTX, VCL_STRING remote_host, VCL_STRING country, VCL_STRING geo_lo
 	props.content_type = amqp_cstring_bytes("text/plain");
 
 	props.delivery_mode = 2; /* persistent delivery mode */
-	amqp_basic_publish(conn, 1, amqp_cstring_bytes(exchange),
-					   amqp_cstring_bytes(routingkey), 1, 0,
+	amqp_basic_publish(((rmq *)pp->priv)->conn, 1, amqp_cstring_bytes("amq.direct"),
+					   amqp_cstring_bytes("test"), 1, 0,
 					   &props, amqp_cstring_bytes(p));
 	WS_Release(ctx->ws, v);
 	return (p);
